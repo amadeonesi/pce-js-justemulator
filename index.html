@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCE.js — Classic Mac OS in the Browser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a1a;
+      color: #ddd;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Status bar */
+    .pcejs-loading-status {
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #666;
+      padding: 3px 0;
+      background: #111;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    /* Canvas area fills all remaining space */
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .pcejs-canvas {
+      display: block;
+      /* IMPORTANT: no border or padding — mouse coords will be wrong */
+      border: 0;
+      padding: 0;
+      cursor: none;
+      image-rendering: pixelated;
+      /* Scale to fit the available space while keeping aspect ratio */
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="pcejs-loading-status" id="loading-status">Initialising…</div>
+
+  <div class="canvas-wrap">
+    <canvas class="pcejs-canvas" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  </div>
+
+  <div class="error-banner" id="error-banner"></div>
+
+  <script src="bundle.js"></script>
+  <script>
+    var macplus = window.macplus || (typeof require !== 'undefined' ? require('./bundle.js') : null);
+
+    var loadingEl = document.getElementById('loading-status');
+    var canvas    = document.getElementById('canvas');
+    var errorEl   = document.getElementById('error-banner');
+
+    function showError(msg) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = msg;
+    }
+
+    // Dependency counter for loading bar
+    var totalDeps = 0, resolvedDeps = 0;
+    function updateLoading(remaining) {
+      if (remaining === 0) {
+        loadingEl.textContent = 'Running…';
+      } else {
+        if (remaining > totalDeps) totalDeps = remaining;
+        resolvedDeps = totalDeps - remaining;
+        var pct = totalDeps ? Math.round((resolvedDeps / totalDeps) * 100) : 0;
+        loadingEl.textContent = 'Loading… ' + pct + '% (' + remaining + ' remaining)';
+      }
+    }
+
+    try {
+      macplus({
+        arguments: ['-c', 'pce-config.cfg', '-r'],
+        autoloadFiles: [
+          'macplus-pcex.rom',
+          'mac-plus.rom',
+          'hd1.qed',
+          'pce-config.cfg',
+        ],
+        print: console.log.bind(console),
+        printErr: console.warn.bind(console),
+        canvas: canvas,
+        monitorRunDependencies: updateLoading,
+      });
+
+    // Controls
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        canvas.requestFullscreen && canvas.requestFullscreen();
+      } else {
+        document.exitFullscreen && document.exitFullscreen();
+      }
+    }
+
+    var mouseLocked = false;
+    function toggleMouseLock() {
+      if (!mouseLocked) {
+        canvas.requestPointerLock && canvas.requestPointerLock();
+        mouseLocked = true;
+      } else {
+        document.exitPointerLock && document.exitPointerLock();
+        mouseLocked = false;
+      }
+    }
+  </script>
+</body>
+</html>
